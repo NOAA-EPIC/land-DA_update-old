@@ -20,7 +20,7 @@
 #########################################
 # source namelist and setup directories
 #########################################
-
+#set -x
 if [[ $# -gt 0 ]]; then 
     config_file=$1
 else
@@ -29,6 +29,7 @@ else
 fi
 
 echo "reading DA settings from $config_file"
+source /opt/spack-stack/.bashenv
 
 GFSv17=${GFSv17:-"NO"}
 
@@ -36,15 +37,15 @@ source $config_file
 
 LOGDIR=${OUTDIR}/DA/logs/
 RSTRDIR=${RSTRDIR:-$WORKDIR/restarts/tile/} # if running offline cycling will be here
-OBSDIR=${OBSDIR:-"/scratch2/NCEPDEV/land/data/DA/"}
+OBSDIR=${OBSDIR:-"/data/land-release/DA/"}
 
 # executable directories
 FIMS_EXECDIR=${LANDDADIR}/IMS_proc/exec/   
 INCR_EXECDIR=${LANDDADIR}/add_jedi_incr/exec/   
 
 # JEDI directories
-JEDI_EXECDIR=${JEDI_EXECDIR:-"/scratch2/NCEPDEV/land/data/jedi/fv3-bundle/build/bin/"}
-IODA_BUILD_DIR=${IODA_BUILD_DIR:-"/scratch2/BMC/gsienkf/UFS-RNR/UFS-RNR-stack/external/ioda-bundle/build/"}
+JEDI_EXECDIR=${JEDI_EXECDIR:-"/opt/fv3-bundle/build/bin/"}
+IODA_BUILD_DIR=${IODA_BUILD_DIR:-"/opt/fv3-bundle//build/"}
 JEDI_STATICDIR=${LANDDADIR}/jedi/fv3-jedi/Data/
 
 # storage settings 
@@ -79,7 +80,7 @@ fi
 
 
 cd $WORKDIR 
-
+set -x
 ################################################
 # 1. FORMAT DATE STRINGS AND STAGE RESTARTS
 ################################################
@@ -205,7 +206,7 @@ cat >> fims.nml << EOF
   /
 EOF
     echo 'do_landDA: calling fIMS'
-    source ${LANDDADIR}/land_mods_hera
+#   source ${LANDDADIR}/land_mods_hera
 
     ${FIMS_EXECDIR}/calcfIMS
     if [[ $? != 0 ]]; then
@@ -217,7 +218,7 @@ EOF
     cp ${LANDDADIR}/jedi/ioda/${IMS_IODA} $WORKDIR
 
     echo 'do_landDA: calling ioda converter' 
-    source ${LANDDADIR}/ioda_mods_hera
+#   source ${LANDDADIR}/ioda_mods_hera
 
     python ${IMS_IODA} -i IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc -o ${WORKDIR}ioda.IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc 
     if [[ $? != 0 ]]; then
@@ -363,7 +364,7 @@ if [[ ${DAtype} == 'letkfoi_snow' ]]; then
     echo 'do_landDA: calling create ensemble' 
 
     # using ioda mods to get a python version with netCDF4
-    source ${LANDDADIR}/ioda_mods_hera
+#    source ${LANDDADIR}/ioda_mods_hera
 
     python ${LANDDADIR}/letkf_create_ens.py $FILEDATE $SNOWDEPTHVAR $B
     if [[ $? != 0 ]]; then
@@ -388,19 +389,21 @@ NPROC_JEDI=6
 if [[ ! -e Data ]]; then
     ln -s $JEDI_STATICDIR Data 
 fi
-
 echo 'do_landDA: calling fv3-jedi' 
-source ${JEDI_EXECDIR}/../../../fv3_mods_hera
+echo ${JEDI_EXECDIR}
+echo ${LOGDIR}
+echo ${JEDI_EXEC}
+#source ${JEDI_EXECDIR}/../../../fv3_mods_hera
 
 if [[ $do_DA == "YES" ]]; then
-    srun -n $NPROC_JEDI ${JEDI_EXECDIR}/${JEDI_EXEC} letkf_land.yaml ${LOGDIR}/jedi_letkf.log
+    mpiexec -n $NPROC_JEDI ${JEDI_EXECDIR}/${JEDI_EXEC} letkf_land.yaml ${LOGDIR}/jedi_letkf.log
     if [[ $? != 0 ]]; then
         echo "JEDI DA failed"
         exit 10
     fi
 fi 
 if [[ $do_HOFX == "YES" ]]; then  
-    srun -n $NPROC_JEDI ${JEDI_EXECDIR}/${JEDI_EXEC} hofx_land.yaml ${LOGDIR}/jedi_hofx.log
+    mpiexec -n $NPROC_JEDI ${JEDI_EXECDIR}/${JEDI_EXEC} hofx_land.yaml ${LOGDIR}/jedi_hofx.log
     if [[ $? != 0 ]]; then
         echo "JEDI hofx failed"
         exit 10
@@ -430,7 +433,7 @@ EOF
     source ${LANDDADIR}/land_mods_hera
 
     # (n=6) -> this is fixed, at one task per tile (with minor code change, could run on a single proc). 
-    srun '--export=ALL' -n 6 ${INCR_EXECDIR}/apply_incr ${LOGDIR}/apply_incr.log
+    mpiexec -n 6 ${INCR_EXECDIR}/apply_incr ${LOGDIR}/apply_incr.log
     if [[ $? != 0 ]]; then
         echo "apply snow increment failed"
         exit 10
