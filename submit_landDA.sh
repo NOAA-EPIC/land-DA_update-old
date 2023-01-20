@@ -18,6 +18,7 @@
 ##SBATCH --nodes=4
 ##SBATCH --tasks-per-node=24
 
+export LANDDAROOT=/lustre
 ./do_landDA.sh  settings_DA_IMS
 
 

@@ -37,7 +37,7 @@ source $config_file
 
 LOGDIR=${OUTDIR}/DA/logs/
 RSTRDIR=${RSTRDIR:-$WORKDIR/restarts/tile/} # if running offline cycling will be here
-OBSDIR=${OBSDIR:-"/data/land-release/DA/"}
+OBSDIR=${OBSDIR:-"${LANDDAROOT}/land-release/DA/"}
 
 # executable directories
 FIMS_EXECDIR=${LANDDADIR}/IMS_proc/exec/   
