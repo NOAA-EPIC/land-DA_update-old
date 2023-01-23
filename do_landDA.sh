@@ -29,7 +29,8 @@ else
 fi
 
 echo "reading DA settings from $config_file"
-source /opt/spack-stack/.bashenv
+#source /opt/spack-stack/.bashenv
+#module restore landda
 
 GFSv17=${GFSv17:-"NO"}
 
@@ -40,8 +41,8 @@ RSTRDIR=${RSTRDIR:-$WORKDIR/restarts/tile/} # if running offline cycling will be
 OBSDIR=${OBSDIR:-"${LANDDAROOT}/land-release/DA/"}
 
 # executable directories
-FIMS_EXECDIR=${LANDDADIR}/IMS_proc/exec/   
-INCR_EXECDIR=${LANDDADIR}/add_jedi_incr/exec/   
+calcfIMS_EXEC=${BUILDDIR}/bin/calcfIMS.exe
+apply_incr_EXEC=${BUILDDIR}/bin/apply_incr.exe   
 
 # JEDI directories
 JEDI_EXECDIR=${JEDI_EXECDIR:-"/opt/fv3-bundle/build/bin/"}
@@ -208,7 +209,7 @@ EOF
     echo 'do_landDA: calling fIMS'
 #   source ${LANDDADIR}/land_mods_hera
 
-    ${FIMS_EXECDIR}/calcfIMS
+    ${calcfIMS_EXEC}
     if [[ $? != 0 ]]; then
         echo "fIMS failed"
         exit 10
@@ -220,7 +221,7 @@ EOF
     echo 'do_landDA: calling ioda converter' 
 #   source ${LANDDADIR}/ioda_mods_hera
 
-    python ${IMS_IODA} -i IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc -o ${WORKDIR}ioda.IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc 
+    ${PYTHON} ${IMS_IODA} -i IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc -o ${WORKDIR}ioda.IMSscf.${YYYY}${MM}${DD}.${TSTUB}.nc 
     if [[ $? != 0 ]]; then
         echo "IMS IODA converter failed"
         exit 10
@@ -364,9 +365,8 @@ if [[ ${DAtype} == 'letkfoi_snow' ]]; then
     echo 'do_landDA: calling create ensemble' 
 
     # using ioda mods to get a python version with netCDF4
-#    source ${LANDDADIR}/ioda_mods_hera
 
-    python ${LANDDADIR}/letkf_create_ens.py $FILEDATE $SNOWDEPTHVAR $B
+    ${PYTHON} ${LANDDADIR}/letkf_create_ens.py $FILEDATE $SNOWDEPTHVAR $B
     if [[ $? != 0 ]]; then
         echo "letkf create failed"
         exit 10
@@ -374,7 +374,7 @@ if [[ ${DAtype} == 'letkfoi_snow' ]]; then
 
 elif [[ ${DAtype} == 'letkfoi_smc' ]]; then 
 
-    JEDI_EXEC="fv3jedi_letkf.x"
+    JEDI_EXEC="${JEDI_EXECDIR}/fv3-bundle/build/bin/fv3jedi_letkf.x"
 
     cp ${LANDDADIR}/jedi/fv3-jedi/yaml_files/gfs-soilMoisture.yaml ${WORKDIR}/gfs-soilMoisture.yaml
 
@@ -393,7 +393,6 @@ echo 'do_landDA: calling fv3-jedi'
 echo ${JEDI_EXECDIR}
 echo ${LOGDIR}
 echo ${JEDI_EXEC}
-#source ${JEDI_EXECDIR}/../../../fv3_mods_hera
 
 if [[ $do_DA == "YES" ]]; then
     mpiexec -n $NPROC_JEDI ${JEDI_EXECDIR}/${JEDI_EXEC} letkf_land.yaml ${LOGDIR}/jedi_letkf.log
@@ -433,7 +432,7 @@ EOF
     source ${LANDDADIR}/land_mods_hera
 
     # (n=6) -> this is fixed, at one task per tile (with minor code change, could run on a single proc). 
-    mpiexec -n 6 ${INCR_EXECDIR}/apply_incr ${LOGDIR}/apply_incr.log
+    mpiexec -n 6 ${apply_incr_EXEC} ${LOGDIR}/apply_incr.log
     if [[ $? != 0 ]]; then
         echo "apply snow increment failed"
         exit 10
